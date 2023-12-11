@@ -1,7 +1,7 @@
 import asyncio
 
+from utils.utils import create_event_filter, handle_event, logger
 from settings.settings import START_BLOCK_ID
-from utils.utils import create_event_filter, handle_event
 
 
 class HistoryFetcher:
@@ -11,8 +11,14 @@ class HistoryFetcher:
     async def fetch_history(self):
         event_filter = create_event_filter(self.start_block, 'latest')
         events = event_filter.get_all_entries()
+        logger.info(f"Fetched {len(events)} events")
+
+        if not events:
+            logger.info("No new events to fetch.")
+            return
 
         for event in events:
+            logger.info(f"Processing event: {event}")
             handle_event(event)
 
 
