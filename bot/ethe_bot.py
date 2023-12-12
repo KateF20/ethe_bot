@@ -64,11 +64,11 @@ def send_stats(input_aix, aix_distributed, swapped_eth, distributed_eth):
 @bot.message_handler(commands=['start'])
 def start_command(message):
     last_event_timestamp = get_last_event_timestamp()
-    # if last_event_timestamp and last_event_timestamp != (datetime.now() - timedelta(days=1)).timestamp():
-    #     bot.reply_to(message, "History is up to date.")
-    # else:
-    bot.reply_to(message, "History is not up to date. Fetching history...")
-    threading.Thread(target=start_async_loop).start()
+    if last_event_timestamp and last_event_timestamp != (datetime.now() - timedelta(days=1)).timestamp():
+        bot.reply_to(message, "History is up to date.")
+    else:
+        bot.reply_to(message, "History is not up to date. Fetching history...")
+        threading.Thread(target=start_async_loop).start()
 
 
 @bot.message_handler(commands=['total'])
@@ -77,6 +77,9 @@ def total_command(message):
 
 
 def scheduled_task():
+    fetcher = HistoryFetcher(get_last_event_timestamp())
+    asyncio.run(fetcher.fetch_history())
+
     fetch_and_send_stats()
 
 

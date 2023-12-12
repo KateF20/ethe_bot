@@ -1,7 +1,7 @@
 import logging
 from web3 import Web3
 
-from database.database import insert_event_into_database
+from database.database import insert_event_into_database, event_exists
 from settings.settings import PROVIDER_URL, CONTRACT_ADDRESS, CONTRACT_ABI
 
 web3 = Web3(Web3.HTTPProvider(PROVIDER_URL))
@@ -21,7 +21,6 @@ def create_event_filter(from_block, to_block):
     if isinstance(to_block, int):
         to_block = hex(to_block)
 
-    logger.info(f"Creating event filter: from_block={from_block}, to_block={to_block}")
     return web3.eth.filter({
         'address': CONTRACT_ADDRESS,
         'fromBlock': from_block,
@@ -31,12 +30,13 @@ def create_event_filter(from_block, to_block):
 
 
 def handle_event(event):
-    logger.info(f"Handling event: {event}")
     decoded_data = contract.events.TotalDistribution().process_log(event)
-    logger.info(f"Decoded event data: {decoded_data}")
 
     block_number = event['blockNumber']
     transaction_hash = event['transactionHash'].hex()
+    if event_exists(transaction_hash):
+        logger.info("Event already exists in the database.")
+        return
     block = web3.eth.get_block(block_number)
     block_timestamp = block['timestamp']
 

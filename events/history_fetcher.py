@@ -18,7 +18,6 @@ class HistoryFetcher:
             return
 
         for event in events:
-            logger.info(f"Processing event: {event}")
             handle_event(event)
 
 
