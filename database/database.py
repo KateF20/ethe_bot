@@ -69,6 +69,13 @@ def get_last_event_timestamp():
     return last_event.block_timestamp if last_event else (datetime.now() - timedelta(days=1)).timestamp()
 
 
+def get_last_processed_block():
+    session = Session()
+    last_event = session.query(TotalDistributionEvent).order_by(TotalDistributionEvent.block_number.desc()).first()
+    session.close()
+    return last_event.block_number if last_event else None
+
+
 def get_24hr_sums():
     session = Session()
     twenty_four_hours_ago = datetime.now() - timedelta(hours=24)

@@ -32,7 +32,7 @@ def start_async_loop():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
-    fetcher = HistoryFetcher(START_BLOCK_ID)
+    fetcher = HistoryFetcher()
     loop.run_until_complete(fetcher.fetch_history())
 
     listener = EventListener()
@@ -77,7 +77,7 @@ def total_command(message):
 
 
 def scheduled_task():
-    fetcher = HistoryFetcher(get_last_event_timestamp())
+    fetcher = HistoryFetcher()
     asyncio.run(fetcher.fetch_history())
 
     fetch_and_send_stats()
