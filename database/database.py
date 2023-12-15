@@ -93,6 +93,18 @@ def get_24hr_sums():
     return sums
 
 
+def get_total_sums():
+    session = Session()
+    sums = session.query(
+        func.sum(TotalDistributionEvent.input_aix_amount),
+        func.sum(TotalDistributionEvent.distributed_aix_amount),
+        func.sum(TotalDistributionEvent.swapped_eth_amount),
+        func.sum(TotalDistributionEvent.distributed_eth_amount)
+    ).one()
+    session.close()
+    return sums
+
+
 def event_exists(transaction_hash):
     session = Session()
     exists = session.query(TotalDistributionEvent).filter_by(transaction_hash=transaction_hash).first() is not None

@@ -10,7 +10,7 @@ from utils.utils import logger, get_distributor_balance
 from events.event_listener import EventListener
 from settings.settings import BOT_TOKEN, DISTRIBUTOR_WALLET
 from events.history_fetcher import HistoryFetcher
-from database.database import get_last_event_timestamp, get_24hr_sums
+from database.database import get_last_event_timestamp, get_24hr_sums, get_total_sums
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
@@ -59,7 +59,7 @@ def callback_query(call):
                          "What do you need? Total statistics or all the info for today?",
                          reply_markup=make_menu_keyboard())
     elif call.data == "total":
-        fetch_and_send_stats(chat_id, include_distributor_info=False)
+        fetch_and_send_stats(chat_id, include_distributor_info=False, is_total=True)
     elif call.data == "today":
         fetch_and_send_stats(chat_id, include_distributor_info=True)
     elif call.data == "subscribe":
@@ -85,9 +85,13 @@ def start_async_loop(chat_id):
     loop.close()
 
 
-def fetch_and_send_stats(chat_id, include_distributor_info=False):
+def fetch_and_send_stats(chat_id, include_distributor_info=False, is_total=False):
     try:
-        sums = get_24hr_sums()
+        if is_total:
+            sums = get_total_sums()
+        else:
+            sums = get_24hr_sums()
+
         send_stats(chat_id, *sums, include_distributor_info=include_distributor_info)
 
     except Exception as e:
