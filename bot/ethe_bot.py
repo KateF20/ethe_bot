@@ -164,7 +164,6 @@ def initialize_event_processes():
     threading.Thread(target=start_listener).start()
 
 
-
 if __name__ == '__main__':
     initialize_event_processes()
     scheduler = BackgroundScheduler()
