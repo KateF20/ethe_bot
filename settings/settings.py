@@ -10,6 +10,7 @@ load_dotenv(dotenv_path=env_path)
 
 PROVIDER_URL = getenv('PROVIDER_URL')
 CONTRACT_ADDRESS = getenv('CONTRACT_ADDRESS')
+DISTRIBUTOR_WALLET = getenv('DISTRIBUTOR_WALLET')
 
 with abi_path.open() as abi_file:
     CONTRACT_ABI = json.load(abi_file)

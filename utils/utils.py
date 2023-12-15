@@ -2,7 +2,7 @@ import logging
 from web3 import Web3
 
 from database.database import insert_event_into_database, event_exists
-from settings.settings import PROVIDER_URL, CONTRACT_ADDRESS, CONTRACT_ABI
+from settings.settings import PROVIDER_URL, CONTRACT_ADDRESS, CONTRACT_ABI, DISTRIBUTOR_WALLET
 
 web3 = Web3(Web3.HTTPProvider(PROVIDER_URL))
 contract = web3.eth.contract(address=CONTRACT_ADDRESS, abi=CONTRACT_ABI)
@@ -35,7 +35,6 @@ def handle_event(event):
     block_number = event['blockNumber']
     transaction_hash = event['transactionHash'].hex()
     if event_exists(transaction_hash):
-        logger.info("Event already exists in the database.")
         return
     block = web3.eth.get_block(block_number)
     block_timestamp = block['timestamp']
@@ -48,3 +47,8 @@ def handle_event(event):
     insert_event_into_database(block_number, transaction_hash, block_timestamp,
                                input_aix_amount, distributed_aix_amount,
                                swapped_eth_amount, distributed_eth_amount)
+
+
+def get_distributor_balance():
+    balance = web3.eth.get_balance(DISTRIBUTOR_WALLET) / 10 ** 18
+    return balance
