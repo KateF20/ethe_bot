@@ -1,0 +1,34 @@
+version: '3'
+
+services:
+  ethe_bot:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+#    volumes:
+#      - ..:/app
+    depends_on:
+      db:
+          condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  db:
+    image: postgres:latest
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U eb_user -d ethe_bot_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: eb_user
+      POSTGRES_DB: ethe_bot_db
+      POSTGRES_PASSWORD: ebuserpassword
+
+volumes:
+  postgres-data:
