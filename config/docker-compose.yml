@@ -7,15 +7,21 @@ services:
       dockerfile: Dockerfile
     env_file:
       - .env
-    volumes:
-      - .:/usr/src/app
+#    volumes:
+#      - ..:/app
     depends_on:
-      - db
+      db:
+          condition: service_healthy
     ports:
       - "8000:8000"
 
   db:
     image: postgres:latest
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U eb_user -d ethe_bot_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
     volumes:
       - postgres-data:/var/lib/postgresql/data

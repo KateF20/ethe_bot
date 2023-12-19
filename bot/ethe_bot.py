@@ -1,3 +1,11 @@
+import os
+print("Current working directory:", os.getcwd())
+print("Directory contents:", os.listdir('.'))
+
+import sys
+print(sys.path)
+from events.event_listener import EventListener
+
 import telebot
 import logging
 import asyncio
@@ -6,11 +14,12 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from utils.utils import logger, get_distributor_balance
-from events.event_listener import EventListener
-from settings.settings import BOT_TOKEN, DISTRIBUTOR_WALLET
+# from events.event_listener import EventListener
 from events.history_fetcher import HistoryFetcher
-from database.database import get_last_event_timestamp, get_24hr_sums, get_total_sums
+from utils.utils import logger, get_distributor_balance
+from settings.settings import BOT_TOKEN, DISTRIBUTOR_WALLET
+from database.database import get_last_tx_timestamp, get_first_tx_timestamp, get_start_of_24hr_period_timestamp, \
+    get_24hr_sums, get_total_sums
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
@@ -86,26 +95,47 @@ def start_async_loop(chat_id):
 
 
 def fetch_and_send_stats(chat_id, include_distributor_info=False, is_total=False):
+    last_tx_timestamp = get_last_tx_timestamp()
+
     try:
         if is_total:
+            first_tx_timestamp = get_first_tx_timestamp()
             sums = get_total_sums()
         else:
+            first_tx_timestamp = get_start_of_24hr_period_timestamp()
             sums = get_24hr_sums()
 
-        send_stats(chat_id, *sums, include_distributor_info=include_distributor_info)
+        send_stats(chat_id, *sums, include_distributor_info=include_distributor_info,
+                   first_tx_timestamp=first_tx_timestamp, last_tx_timestamp=last_tx_timestamp,
+                   is_total=is_total)
 
     except Exception as e:
         logger.error(f"Error in fetch_and_send_stats: {e}")
         bot.send_message(chat_id, "An error occurred while fetching the stats.")
 
 
-def send_stats(chat_id, input_aix, aix_distributed, swapped_eth, distributed_eth, include_distributor_info=False):
-    message = (
-        "$AIX stats since inception:\n"
+def send_stats(chat_id,
+               input_aix, aix_distributed, swapped_eth, distributed_eth,
+               include_distributor_info=False,
+               first_tx_timestamp=None, last_tx_timestamp=None,
+               is_total=False):
+    first_tx_time = datetime.fromtimestamp(first_tx_timestamp).strftime(
+        '%Y-%m-%d %H:%M:%S') if first_tx_timestamp else "N/A"
+    last_tx_time = datetime.fromtimestamp(last_tx_timestamp).strftime(
+        '%Y-%m-%d %H:%M:%S') if last_tx_timestamp else "N/A"
+
+    if is_total:
+        message = "$AIX stats since inception:\n\n"
+    else:
+        message = "Daily $AIX stats:\n\n"
+
+    message += (
         f" - AIX processed: {input_aix}\n"
         f" - AIX distributed: {aix_distributed}\n"
         f" - ETH swapped: {swapped_eth}\n"
-        f" - ETH distributed: {distributed_eth}"
+        f" - ETH distributed: {distributed_eth}\n\n"
+        f"FirstTx: at {first_tx_time}\n"
+        f"LastTx: at {last_tx_time}"
     )
 
     if include_distributor_info:
@@ -134,7 +164,7 @@ def start_command(message):
     chat_id = message.chat.id
 
     if not is_listening:
-        last_event_timestamp = get_last_event_timestamp()
+        last_event_timestamp = get_last_tx_timestamp()
 
         if last_event_timestamp and last_event_timestamp != (datetime.now() - timedelta(days=1)).timestamp():
             bot.reply_to(message,

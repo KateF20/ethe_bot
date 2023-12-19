@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import create_engine, Column, Integer, BigInteger, String
 
-from settings.settings import DB_USERNAME, DB_PASSWORD, DB_NAME, START_BLOCK_ID
+from settings.settings import DB_USERNAME, DB_PASSWORD, DB_NAME
 
 Base = declarative_base()
 
@@ -27,7 +27,7 @@ class TotalDistributionEvent(Base):
     distributed_eth_amount = Column(BigInteger)
 
 
-engine = create_engine(f'postgresql://{DB_USERNAME}:{DB_PASSWORD}@localhost/{DB_NAME}')
+engine = create_engine(f'postgresql://{DB_USERNAME}:{DB_PASSWORD}@db/{DB_NAME}')
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
 
@@ -61,11 +61,17 @@ def insert_event_into_database(block_number, transaction_hash, block_timestamp,
         session.close()
 
 
-def get_last_event_timestamp():
+def get_first_tx_timestamp():
+    session = Session()
+    first_event = session.query(TotalDistributionEvent).order_by(TotalDistributionEvent.block_timestamp.asc()).first()
+    session.close()
+    return first_event.block_timestamp if first_event else (datetime.now() - timedelta(days=1)).timestamp()
+
+
+def get_last_tx_timestamp():
     session = Session()
     last_event = session.query(TotalDistributionEvent).order_by(TotalDistributionEvent.block_timestamp.desc()).first()
     session.close()
-
     return last_event.block_timestamp if last_event else (datetime.now() - timedelta(days=1)).timestamp()
 
 
@@ -74,6 +80,17 @@ def get_last_processed_block():
     last_event = session.query(TotalDistributionEvent).order_by(TotalDistributionEvent.block_number.desc()).first()
     session.close()
     return last_event.block_number if last_event else None
+
+
+def get_start_of_24hr_period_timestamp():
+    session = Session()
+    twenty_four_hours_ago = datetime.now() - timedelta(hours=24)
+    first_event = session.query(TotalDistributionEvent).filter(
+        TotalDistributionEvent.block_timestamp >= twenty_four_hours_ago.timestamp()
+    ).order_by(TotalDistributionEvent.block_timestamp.asc()).first()
+    session.close()
+
+    return first_event.block_timestamp if first_event else None
 
 
 def get_24hr_sums():

@@ -1,13 +1,13 @@
 import asyncio
 
 from events.history_fetcher import HistoryFetcher
-from database.database import get_last_event_timestamp
+from database.database import get_last_tx_timestamp, get_first_tx_timestamp
 from utils.utils import create_event_filter, logger, handle_event
 
 
 class EventListener:
     def __init__(self):
-        self.last_timestamp = get_last_event_timestamp()
+        self.last_timestamp = get_last_tx_timestamp()
 
     async def listen_for_event(self):
         while True:
