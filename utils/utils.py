@@ -15,22 +15,29 @@ logger = logging.getLogger(__name__)
 
 
 def create_event_filter(from_block, to_block):
+    logger.info(f"Creating event filter from {from_block} to {to_block}")
+
     if isinstance(from_block, int):
         from_block = hex(from_block)
 
     if isinstance(to_block, int):
         to_block = hex(to_block)
 
-    return web3.eth.filter({
+    event_filter = web3.eth.filter({
         'address': CONTRACT_ADDRESS,
         'fromBlock': from_block,
         'toBlock': to_block,
         'topics': [event_signature_hash]
     })
 
+    logger.info("Event filter created")
+    return event_filter
+
 
 def handle_event(event):
+    logger.info(f"Processing event: {event}")
     decoded_data = contract.events.TotalDistribution().process_log(event)
+    logger.info(f"Decoded data: {decoded_data}")
 
     block_number = event['blockNumber']
     transaction_hash = event['transactionHash'].hex()

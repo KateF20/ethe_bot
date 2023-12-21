@@ -27,13 +27,15 @@ class TotalDistributionEvent(Base):
     distributed_eth_amount = Column(BigInteger)
 
 
-engine = create_engine(f'postgresql://{DB_USERNAME}:{DB_PASSWORD}@localhost/{DB_NAME}')
+engine = create_engine(f'postgresql://{DB_USERNAME}:{DB_PASSWORD}@db/{DB_NAME}')
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
 
 
 def insert_event_into_database(block_number, transaction_hash, block_timestamp,
                                input_aix, distributed_aix, swapped_eth, distributed_eth):
+    logger.info(f"Inserting event into database: {transaction_hash}")
+
     session = Session()
     existing_event = session.query(TotalDistributionEvent).filter_by(block_number=block_number,
                                                                      transaction_hash=transaction_hash).first()
@@ -123,7 +125,10 @@ def get_total_sums():
 
 
 def event_exists(transaction_hash):
+    logger.info(f"Checking if event exists in database: {transaction_hash}")
+
     session = Session()
     exists = session.query(TotalDistributionEvent).filter_by(transaction_hash=transaction_hash).first() is not None
+    logger.info(f"event exists: {exists}")
     session.close()
     return exists
