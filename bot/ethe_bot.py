@@ -1,11 +1,3 @@
-import os
-print("Current working directory:", os.getcwd())
-print("Directory contents:", os.listdir('.'))
-
-import sys
-print(sys.path)
-from events.event_listener import EventListener
-
 import telebot
 import logging
 import asyncio
@@ -14,7 +6,7 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# from events.event_listener import EventListener
+from events.event_listener import EventListener
 from events.history_fetcher import HistoryFetcher
 from utils.utils import logger, get_distributor_balance
 from settings.settings import BOT_TOKEN, DISTRIBUTOR_WALLET
@@ -69,11 +61,17 @@ def callback_query(call):
                          reply_markup=make_menu_keyboard())
     elif call.data == "total":
         fetch_and_send_stats(chat_id, include_distributor_info=False, is_total=True)
+
     elif call.data == "today":
         fetch_and_send_stats(chat_id, include_distributor_info=True)
+
     elif call.data == "subscribe":
-        subscribers.add(chat_id)
-        bot.send_message(chat_id, "You've subscribed to hourly updates.")
+        if chat_id in subscribers:
+            bot.send_message(chat_id, "You're already subscribed to hourly updates.")
+        else:
+            subscribers.add(chat_id)
+            bot.send_message(chat_id, "You've subscribed to hourly updates.")
+
     elif call.data == "unsubscribe":
         if chat_id in subscribers:
             subscribers.remove(chat_id)
@@ -114,15 +112,29 @@ def fetch_and_send_stats(chat_id, include_distributor_info=False, is_total=False
         bot.send_message(chat_id, "An error occurred while fetching the stats.")
 
 
+def format_timedelta(td):
+    total_seconds = int(td.total_seconds())
+    days = total_seconds // 86400
+    hours = (total_seconds % 86400) // 3600
+    minutes = (total_seconds % 3600) // 60
+
+    if days > 0:
+        return f"{days} days, {hours} hours ago"
+    else:
+        return f"{hours} hours, {minutes} minutes ago"
+
+
 def send_stats(chat_id,
                input_aix, aix_distributed, swapped_eth, distributed_eth,
                include_distributor_info=False,
                first_tx_timestamp=None, last_tx_timestamp=None,
                is_total=False):
-    first_tx_time = datetime.fromtimestamp(first_tx_timestamp).strftime(
-        '%Y-%m-%d %H:%M:%S') if first_tx_timestamp else "N/A"
-    last_tx_time = datetime.fromtimestamp(last_tx_timestamp).strftime(
-        '%Y-%m-%d %H:%M:%S') if last_tx_timestamp else "N/A"
+    current_time = datetime.now()
+
+    first_tx_time = "N/A" if first_tx_timestamp is None else format_timedelta(
+        current_time - datetime.fromtimestamp(first_tx_timestamp))
+    last_tx_time = "N/A" if last_tx_timestamp is None else format_timedelta(
+        current_time - datetime.fromtimestamp(last_tx_timestamp))
 
     if is_total:
         message = "$AIX stats since inception:\n\n"
@@ -151,8 +163,13 @@ def send_stats(chat_id,
 def send_periodic_updates():
     for chat_id in subscribers:
         try:
+            last_tx_timestamp = get_last_tx_timestamp()
+            first_tx_timestamp = get_start_of_24hr_period_timestamp()
+
             sums = get_24hr_sums()
-            send_stats(chat_id, *sums, include_distributor_info=True)
+            logger.info(f"sums: {sums}")
+            send_stats(chat_id, *sums, include_distributor_info=True,
+                       first_tx_timestamp=first_tx_timestamp, last_tx_timestamp=last_tx_timestamp)
         except Exception as e:
             logger.error(f"Error sending update to {chat_id}: {e}")
 
@@ -182,6 +199,38 @@ def start_command(message):
         bot.send_message(chat_id,
                          "Welcome back! What do you need? Total statistics or all the info for today?",
                          reply_markup=make_menu_keyboard())
+
+
+@bot.message_handler(commands=['total'])
+def total_command(message):
+    chat_id = message.chat.id
+    fetch_and_send_stats(chat_id, include_distributor_info=False, is_total=True)
+
+
+@bot.message_handler(commands=['today'])
+def today_command(message):
+    chat_id = message.chat.id
+    fetch_and_send_stats(chat_id, include_distributor_info=True)
+
+
+@bot.message_handler(commands=['subscribe'])
+def subscribe_command(message):
+    chat_id = message.chat.id
+    if chat_id in subscribers:
+        bot.send_message(chat_id, "You're already subscribed to hourly updates.")
+    else:
+        subscribers.add(chat_id)
+        bot.send_message(chat_id, "You've subscribed to hourly updates.")
+
+
+@bot.message_handler(commands=['unsubscribe'])
+def unsubscribe_command(message):
+    chat_id = message.chat.id
+    if chat_id in subscribers:
+        subscribers.remove(chat_id)
+        bot.send_message(chat_id, "You've unsubscribed from hourly updates.")
+    else:
+        bot.send_message(chat_id, "You are not currently subscribed.")
 
 
 def initialize_event_processes():

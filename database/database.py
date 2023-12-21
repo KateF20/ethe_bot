@@ -27,7 +27,7 @@ class TotalDistributionEvent(Base):
     distributed_eth_amount = Column(BigInteger)
 
 
-engine = create_engine(f'postgresql://{DB_USERNAME}:{DB_PASSWORD}@db/{DB_NAME}')
+engine = create_engine(f'postgresql://{DB_USERNAME}:{DB_PASSWORD}@localhost/{DB_NAME}')
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
 
