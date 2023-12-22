@@ -2,12 +2,12 @@ import asyncio
 
 from settings.settings import START_BLOCK_ID
 from utils.utils import create_event_filter, handle_event, logger
-from database.database import get_last_processed_block
+from database.database import get_last_event
 
 
 class HistoryFetcher:
     def __init__(self):
-        self.from_block = get_last_processed_block()
+        self.from_block = get_last_event().block_number
         if self.from_block is None:
             self.from_block = START_BLOCK_ID
         else:

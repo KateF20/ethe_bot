@@ -2,32 +2,17 @@ import logging
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import func, and_
 from datetime import datetime, timedelta
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine, Column, Integer, BigInteger, String
+from sqlalchemy import create_engine
 
 from settings.settings import DB_USERNAME, DB_PASSWORD, DB_NAME
+from .models import TotalDistributionEvent, Base, Subscriber
 
-Base = declarative_base()
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
-class TotalDistributionEvent(Base):
-
-    __tablename__ = 'total_distribution_events'
-
-    id = Column(Integer, primary_key=True)
-    block_number = Column(BigInteger)
-    transaction_hash = Column(String)
-    block_timestamp = Column(BigInteger)
-    input_aix_amount = Column(BigInteger)
-    distributed_aix_amount = Column(BigInteger)
-    swapped_eth_amount = Column(BigInteger)
-    distributed_eth_amount = Column(BigInteger)
-
-
-engine = create_engine(f'postgresql://{DB_USERNAME}:{DB_PASSWORD}@db/{DB_NAME}')
+engine = create_engine(f'postgresql://{DB_USERNAME}:{DB_PASSWORD}@db:5432/{DB_NAME}')
 Base.metadata.create_all(engine)
 Session = sessionmaker(bind=engine)
 
@@ -63,25 +48,18 @@ def insert_event_into_database(block_number, transaction_hash, block_timestamp,
         session.close()
 
 
-def get_first_tx_timestamp():
+def get_first_event():
     session = Session()
     first_event = session.query(TotalDistributionEvent).order_by(TotalDistributionEvent.block_timestamp.asc()).first()
     session.close()
-    return first_event.block_timestamp if first_event else (datetime.now() - timedelta(days=1)).timestamp()
+    return first_event if first_event else None
 
 
-def get_last_tx_timestamp():
+def get_last_event():
     session = Session()
     last_event = session.query(TotalDistributionEvent).order_by(TotalDistributionEvent.block_timestamp.desc()).first()
     session.close()
-    return last_event.block_timestamp if last_event else (datetime.now() - timedelta(days=1)).timestamp()
-
-
-def get_last_processed_block():
-    session = Session()
-    last_event = session.query(TotalDistributionEvent).order_by(TotalDistributionEvent.block_number.desc()).first()
-    session.close()
-    return last_event.block_number if last_event else None
+    return last_event if last_event else None
 
 
 def get_start_of_24hr_period_timestamp():
@@ -132,3 +110,45 @@ def event_exists(transaction_hash):
     logger.info(f"event exists: {exists}")
     session.close()
     return exists
+
+
+def is_subscribed(chat_id):
+    session = Session()
+    exists = session.query(Subscriber).filter_by(chat_id=chat_id).first() is not None
+    session.close()
+    return exists
+
+
+def add_subscriber(chat_id):
+    session = Session()
+    new_subscriber = Subscriber(chat_id=chat_id)
+    session.add(new_subscriber)
+    try:
+        session.commit()
+    except Exception as e:
+        logger.error(f"Error adding subscriber: {e}")
+        session.rollback()
+    finally:
+        session.close()
+
+
+def remove_subscriber(chat_id):
+    session = Session()
+    subscriber = session.query(Subscriber).filter_by(chat_id=chat_id).first()
+    if subscriber:
+        try:
+            session.delete(subscriber)
+            session.commit()
+        except Exception as e:
+            logger.error(f"Error removing subscriber: {e}")
+            session.rollback()
+    session.close()
+
+
+def get_all_subscribers():
+    session = Session()
+    all_subscribers = session.query(Subscriber).all()
+    subscriber_ids = [subscriber.chat_id for subscriber in all_subscribers]
+    session.close()
+
+    return subscriber_ids

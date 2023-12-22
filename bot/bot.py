@@ -6,17 +6,14 @@ from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-from events.event_listener import EventListener
-from events.history_fetcher import HistoryFetcher
-from utils.utils import logger, get_distributor_balance
+from utils.utils import logger, get_distributor_balance, start_event_listener, start_history_fetcher
 from settings.settings import BOT_TOKEN, DISTRIBUTOR_WALLET
-from database.database import get_last_tx_timestamp, get_first_tx_timestamp, get_start_of_24hr_period_timestamp, \
-    get_24hr_sums, get_total_sums
+from database.database import get_last_event, get_first_event, get_start_of_24hr_period_timestamp, \
+    get_24hr_sums, get_total_sums, is_subscribed, add_subscriber, remove_subscriber, get_all_subscribers
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
 is_listening = False
-subscribers = set()
 
 
 class TelegramLogHandler(logging.Handler):
@@ -66,15 +63,15 @@ def callback_query(call):
         fetch_and_send_stats(chat_id, include_distributor_info=True)
 
     elif call.data == "subscribe":
-        if chat_id in subscribers:
+        if is_subscribed(chat_id):
             bot.send_message(chat_id, "You're already subscribed to hourly updates.")
         else:
-            subscribers.add(chat_id)
+            add_subscriber(chat_id)
             bot.send_message(chat_id, "You've subscribed to hourly updates.")
 
     elif call.data == "unsubscribe":
-        if chat_id in subscribers:
-            subscribers.remove(chat_id)
+        if is_subscribed(chat_id):
+            remove_subscriber(chat_id)
             bot.send_message(chat_id, "You've unsubscribed from hourly updates.")
         else:
             bot.send_message(chat_id, "You are not currently subscribed.")
@@ -84,20 +81,24 @@ def start_async_loop(chat_id):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
-    fetcher = HistoryFetcher()
-    loop.run_until_complete(fetcher.fetch_history())
-
-    listener = EventListener()
-    loop.run_until_complete(listener.listen_for_event())
+    loop.run_until_complete(start_history_fetcher())
+    loop.run_until_complete(start_event_listener())
     loop.close()
 
 
 def fetch_and_send_stats(chat_id, include_distributor_info=False, is_total=False):
-    last_tx_timestamp = get_last_tx_timestamp()
+    if get_last_event() is None:
+        last_tx_timestamp = (datetime.now() - timedelta(days=1)).timestamp()
+    else:
+        last_tx_timestamp = get_last_event().block_timestamp
 
     try:
         if is_total:
-            first_tx_timestamp = get_first_tx_timestamp()
+            if get_first_event() is None:
+                first_tx_timestamp = (datetime.now() - timedelta(days=1)).timestamp()
+            else:
+                first_tx_timestamp = get_first_event().block_timestamp
+
             sums = get_total_sums()
         else:
             first_tx_timestamp = get_start_of_24hr_period_timestamp()
@@ -161,15 +162,18 @@ def send_stats(chat_id,
 
 
 def send_periodic_updates():
-    for chat_id in subscribers:
+    subscribers_list = get_all_subscribers()
+
+    for chat_id in subscribers_list:
         try:
-            last_tx_timestamp = get_last_tx_timestamp()
+            last_tx_timestamp = get_last_event().block_timestamp
             first_tx_timestamp = get_start_of_24hr_period_timestamp()
 
             sums = get_24hr_sums()
             logger.info(f"sums: {sums}")
             send_stats(chat_id, *sums, include_distributor_info=True,
                        first_tx_timestamp=first_tx_timestamp, last_tx_timestamp=last_tx_timestamp)
+
         except Exception as e:
             logger.error(f"Error sending update to {chat_id}: {e}")
 
@@ -181,7 +185,7 @@ def start_command(message):
     chat_id = message.chat.id
 
     if not is_listening:
-        last_event_timestamp = get_last_tx_timestamp()
+        last_event_timestamp = get_last_event().block_timestamp
 
         if last_event_timestamp and last_event_timestamp != (datetime.now() - timedelta(days=1)).timestamp():
             bot.reply_to(message,
@@ -216,32 +220,33 @@ def today_command(message):
 @bot.message_handler(commands=['subscribe'])
 def subscribe_command(message):
     chat_id = message.chat.id
-    if chat_id in subscribers:
+    if is_subscribed(chat_id):
+        logging.info(f'user with chat id: {chat_id} subscribed, nothing changed')
         bot.send_message(chat_id, "You're already subscribed to hourly updates.")
     else:
-        subscribers.add(chat_id)
+        add_subscriber(chat_id)
+        logging.info(f'user with chat id: {chat_id} subscribed')
         bot.send_message(chat_id, "You've subscribed to hourly updates.")
 
 
 @bot.message_handler(commands=['unsubscribe'])
 def unsubscribe_command(message):
     chat_id = message.chat.id
-    if chat_id in subscribers:
-        subscribers.remove(chat_id)
+    if is_subscribed(chat_id):
+        remove_subscriber(chat_id)
+        logging.info(f'user with chat id: {chat_id} unsubscribed')
         bot.send_message(chat_id, "You've unsubscribed from hourly updates.")
     else:
+        logging.info(f'user with chat id: {chat_id} unsubscribed, nothing changed')
         bot.send_message(chat_id, "You are not currently subscribed.")
 
 
 def initialize_event_processes():
-    fetcher = HistoryFetcher()
-    listener = EventListener()
-
     def start_fetcher():
-        asyncio.run(fetcher.fetch_history())
+        asyncio.run(start_history_fetcher())
 
     def start_listener():
-        asyncio.run(listener.listen_for_event())
+        asyncio.run(start_event_listener())
 
     threading.Thread(target=start_fetcher).start()
     threading.Thread(target=start_listener).start()

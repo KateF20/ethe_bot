@@ -1,14 +1,14 @@
 import asyncio
 
 from events.history_fetcher import HistoryFetcher
-from database.database import get_last_processed_block
-from utils.utils import create_event_filter, logger, handle_event, web3, contract
+from database.database import get_last_event
+from utils.utils import create_event_filter, logger, handle_event
 
 
 class EventListener:
     def __init__(self):
-        self.last_block = get_last_processed_block()
-        logger.info(f"EventListener initialized with last timestamp: {self.last_block}")
+        self.last_block = get_last_event().block_number
+        logger.info(f"EventListener initialized with last block number: {self.last_block}")
 
     async def listen_for_event(self):
         while True:
@@ -17,10 +17,10 @@ class EventListener:
 
                 logger.info("Listening for new events...")
                 event_filter = create_event_filter(self.last_block, 'latest')
-                new_entries = event_filter.get_new_entries()
-                logger.info(f"Found {len(new_entries)} new events")
+                new_events = event_filter.get_new_entries()
+                logger.info(f"Found {len(new_events)} new events")
 
-                for event in event_filter.get_new_entries():
+                for event in new_events:
                     logger.info(f"Handling event: {event}")
                     handle_event(event)
 
