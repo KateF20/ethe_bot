@@ -143,10 +143,10 @@ def send_stats(chat_id,
         message = "Daily $AIX stats:\n\n"
 
     message += (
-        f" - AIX processed: {input_aix}\n"
-        f" - AIX distributed: {aix_distributed}\n"
-        f" - ETH swapped: {swapped_eth}\n"
-        f" - ETH distributed: {distributed_eth}\n\n"
+        f" - AIX processed: {input_aix:.2f}\n"        
+        f" - AIX distributed: {aix_distributed:.2f}\n"
+        f" - ETH swapped: {swapped_eth:.2f}\n"
+        f" - ETH distributed: {distributed_eth:.2f}\n\n"
         f"FirstTx: at {first_tx_time}\n"
         f"LastTx: at {last_tx_time}"
     )

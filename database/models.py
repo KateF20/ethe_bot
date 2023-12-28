@@ -1,5 +1,5 @@
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, BigInteger, String
+from sqlalchemy import Column, Integer, BigInteger, String, Float
 
 Base = declarative_base()
 
@@ -12,10 +12,10 @@ class TotalDistributionEvent(Base):
     block_number = Column(BigInteger)
     transaction_hash = Column(String)
     block_timestamp = Column(BigInteger)
-    input_aix_amount = Column(BigInteger)
-    distributed_aix_amount = Column(BigInteger)
-    swapped_eth_amount = Column(BigInteger)
-    distributed_eth_amount = Column(BigInteger)
+    input_aix_amount = Column(Float)
+    distributed_aix_amount = Column(Float)
+    swapped_eth_amount = Column(Float)
+    distributed_eth_amount = Column(Float)
 
 
 class Subscriber(Base):
